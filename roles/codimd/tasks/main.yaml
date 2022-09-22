@@ -1,0 +1,8 @@
+- name: Deploy CodiMD
+  include_tasks:
+    file: codimd.yml
+    apply:
+      tags:
+        - codimd
+  tags:
+    - codimd
