@@ -1,5 +1,14 @@
 - name: Import CodiMD Helm repository
   kubernetes.core.helm_repository:
-    name: codimd
-    repo_url: "https://helm.codimd.dev"
+    name: "{{ codimd_helm_repo_name }}"
+    repo_url: "{{ codimd_helm_repo_url }}"
 
+- name: Deploy CodiMD with Helm
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ item }}"
+  with_items: >-
+    {{ 
+      lookup('template', 'k8s-template-codimd.yml') |
+      from_yaml_all 
+    }}

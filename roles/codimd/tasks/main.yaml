@@ -1,3 +1,6 @@
+- include_vars: "codimd-vars.yml"
+  tags: always
+
 - name: Deploy CodiMD
   include_tasks:
     file: codimd.yml

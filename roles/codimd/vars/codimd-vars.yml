@@ -1,0 +1,10 @@
+codimd_helm_repo_name: codimd
+codimd_helm_repo_url: https://helm.codimd.dev
+codimd_namespace: codimd
+codimd_storage_class_name: stcl-svc0176idevfsdkt0001
+
+codimd_common_security_context:
+  runAsNonRoot: true
+  # runAsUser: 196
+  # runAsGroup: 196
+  # fsGroup: 196

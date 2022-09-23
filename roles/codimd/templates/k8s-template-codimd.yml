@@ -1,0 +1,444 @@
+#
+#
+# Please be aware that this file contain plain text password because it's
+# a work in progress and it is not used yet ! Be certain that these passwords
+# will be handled the right way when the blockers are gone.
+#
+#
+#
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "{{ codimd_namespace }}"
+---
+# Source: codimd/charts/postgresql/templates/secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: release-name-postgresql
+  namespace: "{{ codimd_namespace }}"
+  labels:
+    app: postgresql
+    chart: postgresql-8.6.13
+    release: "release-name"
+    heritage: "Helm"
+type: Opaque
+data:
+  postgresql-password: "Y2hhbmdlbWU="
+
+---
+# Source: codimd/templates/auth-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: release-name-codimd-auth-env
+  namespace: "{{ codimd_namespace }}"
+stringData:
+  CMD_EMAIL: "true"
+  CMD_ALLOW_EMAIL_REGISTER: "true"
+
+---
+# Source: codimd/templates/db-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: release-name-codimd-db-secret
+  namespace: "{{ codimd_namespace }}"
+stringData:
+  connection: "postgres://codimd:changeme@release-name-postgresql/codimd"
+
+---
+# Source: codimd/templates/session-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: release-name-codimd-session
+  namespace: "{{ codimd_namespace }}"
+  labels:
+    app.kubernetes.io/component: sessionSecret
+    app.kubernetes.io/name: codimd
+    helm.sh/chart: codimd-0.1.10
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: 2.3.2
+stringData:
+  CMD_SESSION_SECRET: "Cheitaiph2Eibei8oomaej9aghueNgoh"
+
+---
+# Source: codimd/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: release-name-codimd
+  namespace: "{{ codimd_namespace }}"
+  labels:
+    app.kubernetes.io/component: pvc
+    app.kubernetes.io/name: codimd
+    helm.sh/chart: codimd-0.1.10
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: 2.3.2
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: "1Gi"
+  storageClassName: "{{ codimd_storage_class_name }}"
+
+---
+# Source: codimd/charts/postgresql/templates/svc-headless.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-postgresql-headless
+  namespace: "{{ codimd_namespace }}"
+  labels:
+    app: postgresql
+    chart: postgresql-8.6.13
+    release: "release-name"
+    heritage: "Helm"
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: tcp-postgresql
+      port: 5432
+      targetPort: tcp-postgresql
+  selector:
+    app: postgresql
+    release: "release-name"
+
+---
+# Source: codimd/charts/postgresql/templates/svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-postgresql
+  namespace: "{{ codimd_namespace }}"
+  labels:
+    app: postgresql
+    chart: postgresql-8.6.13
+    release: "release-name"
+    heritage: "Helm"
+spec:
+  type: ClusterIP
+  ports:
+    - name: tcp-postgresql
+      port: 5432
+      targetPort: tcp-postgresql
+  selector:
+    app: postgresql
+    release: "release-name"
+    role: master
+
+---
+# Source: codimd/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-codimd
+  namespace: "{{ codimd_namespace }}"
+  labels:
+    app.kubernetes.io/component: Service
+    app.kubernetes.io/name: codimd
+    helm.sh/chart: codimd-0.1.10
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: 2.3.2
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: codimd
+    helm.sh/chart: codimd-0.1.10
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: 2.3.2
+  ports:
+    - port: 80
+      targetPort: 3000
+
+---
+# Source: codimd/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-codimd
+  namespace: "{{ codimd_namespace }}"
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: codimd
+    helm.sh/chart: codimd-0.1.10
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: 2.3.2
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: server
+      app.kubernetes.io/name: codimd
+      app.kubernetes.io/instance: release-name
+  template:
+    metadata:
+      name: release-name-codimd
+      labels:
+        app.kubernetes.io/component: server
+        app.kubernetes.io/name: codimd
+        helm.sh/chart: codimd-0.1.10
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/instance: release-name
+        app.kubernetes.io/version: 2.3.2
+      annotations:
+        checksum/db-secret: "aa0c62a029f9177d871a3764789a94bb98ce3806114afcf81b1fea34335f74ba"
+        checksum/auth-secret: "5ea527c1873400e78d4d5dfcdf109cc8bd41fae16ea315306f416352af95c959"
+        checksum/session-secret: "bceeab14d33e72a1f751f0c8849a91ec244bf281183ec72f8e3b16d247dd1bf8"
+    spec:
+
+      securityContext:
+        fsGroup: 1500
+        runAsGroup: 1500
+        runAsNonRoot: true
+        runAsUser: 1500
+
+      containers:
+        - name: codimd
+          image: nabo.codimd.dev/hackmdio/hackmd:2.3.2
+          imagePullPolicy: "IfNotPresent"
+          env:
+            - name: CMD_URL_ADDPORT
+              value: "false"
+            - name: CMD_PROTOCOL_USESSL
+              value: "false"
+            - name: CMD_USECDN
+              value: "false"
+            - name: CMD_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: release-name-codimd-db-secret
+                  key: connection
+            - name: CMD_SESSION_LIFE
+              value: "1209600000"
+            - name: CMD_HSTS_ENABLE
+              value: "true"
+            - name: CMD_HSTS_MAX_AGE
+              value: "31536000"
+            - name: CMD_HSTS_INCLUDE_SUBDOMAINS
+              value: "false"
+            - name: CMD_HSTS_PRELOAD
+              value: "true"
+            - name: CMD_CSP_ENABLE
+              value: "true"
+            - name: CMD_ALLOW_GRAVATAR
+              value: "true"
+            - name: CMD_RESPONSE_MAX_LAG
+              value: "70"
+            - name: CMD_IMAGE_UPLOAD_TYPE
+              value: "filesystem"
+            - name: CMD_ALLOW_FREEURL
+              value: "false"
+            - name: CMD_FORBIDDEN_NOTE_IDS
+              value: "robots.txt,favicon.ico,api"
+            - name: CMD_DEFAULT_PERMISSION
+              value: "editable"
+            - name: CMD_ALLOW_ANONYMOUS_EDITS
+              value: "true"
+            - name: CMD_ALLOW_ANONYMOUS_VIEWS
+              value: "true"
+            - name: CMD_ALLOW_PDF_EXPORT
+              value: "false"
+            - name: CMD_DEFAULT_USE_HARD_BREAK
+              value: "true"
+            - name: CMD_LINKIFY_HEADER_STYLE
+              value: "keep-case"
+            - name: CMD_AUTO_VERSION_CHECK
+              value: "true"
+          envFrom:
+            - secretRef:
+                name: release-name-codimd-auth-env
+            - secretRef:
+                name: release-name-codimd-session
+          ports:
+            - name: http
+              containerPort: 3000
+          volumeMounts:
+            - mountPath: /home/hackmd/app/public/uploads
+              name: image-store
+          readinessProbe:
+            httpGet:
+              port: 3000
+              path: /status
+            initialDelaySeconds: 3
+            failureThreshold: 2
+            successThreshold: 3
+            timeoutSeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /status
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 2
+      restartPolicy: Always
+      
+      volumes:
+        - name: image-store
+          persistentVolumeClaim:
+            claimName: release-name-codimd
+
+---
+# Source: codimd/charts/postgresql/templates/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: release-name-postgresql
+  namespace: "{{ codimd_namespace }}"
+  labels:
+    app: postgresql
+    chart: postgresql-8.6.13
+    release: "release-name"
+    heritage: "Helm"
+spec:
+  serviceName: release-name-postgresql-headless
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: postgresql
+      release: "release-name"
+      role: master
+  template:
+    metadata:
+      name: release-name-postgresql
+      labels:
+        app: postgresql
+        chart: postgresql-8.6.13
+        release: "release-name"
+        heritage: "Helm"
+        role: master
+    spec:
+      securityContext:
+        {{ codimd_common_security_context | to_yaml(indent=8) }}
+      initContainers:
+        - name: init-chmod-data
+          image: docker.io/bitnami/minideb:buster
+          imagePullPolicy: "Always"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          command:
+            - /bin/sh
+            - -cx
+            - |
+              mkdir -p /bitnami/postgresql/conf /bitnami/postgresql/data
+              chmod 700 /bitnami/postgresql/conf /bitnami/postgresql/data
+              find /bitnami/postgresql -mindepth 1 -maxdepth 1 -not -name ".snapshot" -not -name "lost+found" | \
+                xargs chown -R 1001:1001
+              chmod -R 777 /dev/shm
+          securityContext:
+            allowPrivilegeEscalation: true
+            runAsUser: 1000
+            capabilities:
+              # Hey, welcome here ;) Follow up of INC0478824 (https://go.epfl.ch/INC0478824)
+              # we need some capabilities to deploy this pod (e.g. the chmod 700 few lines above),
+              # but for some reason (https://github.com/kubernetes/kubernetes/issues/56374)
+              # we can get them...
+              # add: ["SYS_PTRACE", "NET_ADMIN", "NET_RAW", "SYSLOG"]
+              add: ["CHOWN", "DAC_OVERRIDE", "DAC_READ_SEARCH", "FOWNER", "FSETID", "IPC_OWNER", "KILL", "LINUX_IMMUTABLE", "NET_ADMIN", "NET_BIND_SERVICE", "NET_RAW", "SETGID", "SETUID", "SYS_NICE", "SYS_PTRACE", "SYSLOG"]
+
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/postgresql
+              subPath: 
+            - name: dshm
+              mountPath: /dev/shm
+      containers:
+        - name: release-name-postgresql
+          image: docker.io/bitnami/postgresql:11.7.0-debian-10-r55
+          imagePullPolicy: "IfNotPresent"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            runAsUser: 1001
+          env:
+            - name: BITNAMI_DEBUG
+              value: "false"
+            - name: POSTGRESQL_PORT_NUMBER
+              value: "5432"
+            - name: POSTGRESQL_VOLUME_DIR
+              value: "/bitnami/postgresql"
+            - name: PGDATA
+              value: "/bitnami/postgresql/data"
+            - name: POSTGRES_USER
+              value: "codimd"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: release-name-postgresql
+                  key: postgresql-password
+            - name: POSTGRES_DB
+              value: "codimd"
+            - name: POSTGRESQL_ENABLE_LDAP
+              value: "no"
+          ports:
+            - name: tcp-postgresql
+              containerPort: 5432
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - exec pg_isready -U "codimd" -d "codimd" -h 127.0.0.1 -p 5432
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - -e
+                - |
+                  exec pg_isready -U "codimd" -d "codimd" -h 127.0.0.1 -p 5432
+                  [ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f /bitnami/postgresql/.initialized ]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+            - name: data
+              mountPath: /bitnami/postgresql
+              subPath: 
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - "ReadWriteOnce"
+        storageClassName: "{{ codimd_storage_class_name }}"
+        resources:
+          requests:
+            storage: "1Gi"
